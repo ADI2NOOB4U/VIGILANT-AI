@@ -326,10 +326,13 @@ def test_verified_host_policy_does_not_trust_lookalikes_or_unapproved_subdomains
         assert result["reputation"]["applied"] is False
 
 
-def test_vit_bhopal_vtop_route_overrides_high_model_score_with_explicit_evidence(monkeypatch):
+@pytest.mark.parametrize("url", [
+    "https://vtop.vitbhopal.ac.in/vtop/open/page",
+    "https://vtop.vitbhopal.ac.in/vtop/prelogin/setup",
+])
+def test_vit_bhopal_vtop_routes_override_high_model_score_with_explicit_evidence(url, monkeypatch):
     import service
 
-    url = "https://vtop.vitbhopal.ac.in/vtop/open/page"
     model, names, metadata = service.load_model_bundle()
     monkeypatch.setattr(model, "predict_proba", lambda _row: [[0.001, 0.999]])
     result = service._prediction(url, extract_features(url), model, names, metadata)
@@ -346,9 +349,15 @@ def test_vit_bhopal_vtop_route_overrides_high_model_score_with_explicit_evidence
 
 @pytest.mark.parametrize("url", [
     "https://vtop.vitbhopal.ac.in.attacker.example/vtop/open/page",
+    "https://vtop.vitbhopal.ac.in.attacker.example/vtop/prelogin/setup",
     "https://sub.vtop.vitbhopal.ac.in/vtop/open/page",
+    "https://sub.vtop.vitbhopal.ac.in/vtop/prelogin/setup",
     "https://vtop.vitbhopal.ac.in/",
     "https://vtop.vitbhopal.ac.in/vtop/open/page/",
+    "https://vtop.vitbhopal.ac.in/vtop/prelogin/setup/extra",
+    "https://vtop.vitbhopal.ac.in/vtop/other",
+    "http://vtop.vitbhopal.ac.in/vtop/open/page",
+    "http://vtop.vitbhopal.ac.in/vtop/prelogin/setup",
 ])
 def test_vit_bhopal_vtop_policy_rejects_lookalikes_and_unapproved_routes(url, monkeypatch):
     import service
