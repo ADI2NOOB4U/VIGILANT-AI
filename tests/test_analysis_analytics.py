@@ -71,7 +71,9 @@ def test_model_info_reports_loaded_artifact_training_splits_and_offline_test():
     assert info["feature_count"] == len(info["features"]) == 29
     assert info["training"]["dataset_rows"] == 11510
     assert info["training"]["dataset_sha256"] == "890c6b41e54fe2e8a72a03c628e945dc4a3434d3739c9204794e9225ebcbfc11"
-    assert info["training"]["dataset_source_status"] == "verified"
+    dataset_path = Path(service.ROOT) / info["training"]["dataset_path"]
+    expected_source_status = "verified" if dataset_path.is_file() else "source_unavailable"
+    assert info["training"]["dataset_source_status"] == expected_source_status
     assert info["training"]["sample_count"] == 7772
     assert info["training"]["legitimate_samples"] == 3886
     assert info["training"]["phishing_samples"] == 3886
@@ -90,6 +92,19 @@ def test_model_info_reports_loaded_artifact_training_splits_and_offline_test():
     assert info["evaluation"]["confusion_matrix"] == [[1009, 30], [287, 752]]
     assert info["evaluation"]["evaluated_at"] is None
     assert info["evaluation"]["pr_auc"] is None
+
+
+def test_model_info_reports_missing_training_dataset_without_fabricating_verification(
+    tmp_path, monkeypatch
+):
+    import service
+
+    monkeypatch.setattr(service, "ROOT", str(tmp_path))
+    info = service.model_info()
+
+    assert info["training"]["dataset_rows"] == 11510
+    assert info["training"]["dataset_sha256"] == "890c6b41e54fe2e8a72a03c628e945dc4a3434d3739c9204794e9225ebcbfc11"
+    assert info["training"]["dataset_source_status"] == "source_unavailable"
 
 
 def test_model_info_uses_active_metadata_and_missing_values_remain_unavailable(monkeypatch):

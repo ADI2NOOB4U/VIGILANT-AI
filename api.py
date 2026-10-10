@@ -19,8 +19,44 @@ from threat_intel import (
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 65536  # Support slightly larger payloads for batch operations while staying bounded
-CORS(app, resources={r"/*": {"origins": "*"}})
-DB_PATH = os.path.join(os.path.dirname(__file__), "vigil_history.sqlite3")
+
+
+def _parse_cors_origins(value):
+    if value is None:
+        return ["http://localhost:5173"]
+
+    origins = [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
+    if not origins:
+        raise ValueError("VIGIL_CORS_ORIGINS must contain at least one exact origin.")
+
+    for origin in origins:
+        parsed = urlsplit(origin)
+        try:
+            parsed.port
+        except ValueError as exc:
+            raise ValueError("VIGIL_CORS_ORIGINS contains an invalid origin.") from exc
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or "*" in parsed.netloc
+        ):
+            raise ValueError(
+                "VIGIL_CORS_ORIGINS must be a comma-separated list of exact HTTP(S) origins."
+            )
+    return origins
+
+
+CORS_ORIGINS = _parse_cors_origins(os.getenv("VIGIL_CORS_ORIGINS"))
+CORS(app, resources={r"/*": {"origins": CORS_ORIGINS}})
+DB_PATH = os.getenv(
+    "VIGIL_DB_PATH",
+    os.path.join(os.path.dirname(__file__), "vigil_history.sqlite3"),
+)
 API_INSTANCE_ID = str(uuid.uuid4())
 DEBUG_DIAGNOSTICS = os.getenv("VIGIL_DEBUG", "").lower() in {"1", "true", "yes"}
 

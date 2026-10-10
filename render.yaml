@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: vigilant-ai-api
+    runtime: python
+    branch: main
+    rootDir: .
+    plan: starter
+    buildCommand: pip install -r requirements.txt -c requirements.lock
+    startCommand: gunicorn --worker-class gthread --threads 8 --timeout 120 --bind 0.0.0.0:$PORT api:app
+    healthCheckPath: /health
+    disk:
+      name: vigil-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.11
+      - key: VIGIL_DB_PATH
+        value: /var/data/vigil_history.sqlite3
+      - key: VIGIL_CORS_ORIGINS
+        sync: false

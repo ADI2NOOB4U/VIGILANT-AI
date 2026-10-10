@@ -13,13 +13,13 @@ if (!await page.getByRole('heading', { name: /Analyze a URL/ }).isVisible()) thr
 await page.getByLabel('URL to analyze').fill('https://fast.com/')
 await page.getByRole('button', { name: /Scan URL/ }).click()
 await page.getByText('SAFE', { exact: true }).first().waitFor()
-const probability = page.locator('.probability strong')
+const probability = page.locator('.result-probability-card .prob-value')
 if (!await probability.isVisible() || !/^\d+\.\d+%$/.test(await probability.textContent())) throw new Error('Fast.com probability did not render')
-await page.getByRole('button', { name: /Show technical analysis/ }).click()
+await page.getByRole('button', { name: /Inspect Technical Feature Matrix/ }).click()
 if (!await page.getByText('URL length', { exact: true }).isVisible()) throw new Error('Technical feature grid did not render')
 await page.screenshot({ path: `${output}/scan-result.png`, fullPage: true })
 
-await page.getByLabel('URL to analyze').fill('not-a-url')
+await page.getByLabel('URL to analyze').fill('ftp://example.com')
 await page.getByRole('button', { name: /Scan URL/ }).click()
 if (!await page.getByRole('alert').isVisible()) throw new Error('Invalid URL error did not render')
 
@@ -36,12 +36,12 @@ for (const suspicious of [
 }
 
 await page.getByRole('button', { name: 'History' }).click()
-await page.getByRole('heading', { name: 'Scan history' }).waitFor()
+await page.getByRole('heading', { name: 'Scan History' }).waitFor()
 await page.screenshot({ path: `${output}/history.png`, fullPage: true })
 await page.getByRole('button', { name: 'Analysis' }).click()
-await page.getByRole('heading', { name: 'Analysis' }).waitFor()
+await page.getByRole('heading', { name: 'System Analysis' }).waitFor()
 await page.getByRole('button', { name: 'About' }).click()
-await page.getByRole('heading', { name: 'About VIGIL' }).waitFor()
+await page.getByRole('heading', { name: 'About VIGIL AI' }).waitFor()
 
 for (const [width, height] of viewports) {
   await page.setViewportSize({ width, height })

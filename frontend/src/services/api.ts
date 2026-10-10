@@ -17,7 +17,10 @@ import type {
   ThreatSourceStatus,
 } from '../types'
 
-const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
+const baseUrl = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://localhost:5000' : '')
+).replace(/\/$/, '')
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
@@ -106,7 +109,7 @@ export const api = {
     const connect = () => {
       if (isExplicitlyClosed) return
 
-      const streamUrl = new URL(`${baseUrl}/threat-feed/stream`)
+      const streamUrl = new URL(`${baseUrl}/threat-feed/stream`, window.location.origin)
       if (lastEventId) {
         streamUrl.searchParams.set('last_event_id', lastEventId)
       }

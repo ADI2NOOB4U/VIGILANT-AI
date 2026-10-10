@@ -30,7 +30,7 @@
 
 ---
 
-> **Project status:** Research / development prototype. The repository contains multiple entry points and some older documentation. This README treats the checked-in `model_metadata.json` and the implementation on the `final` branch as the source of truth for the active model and current API behavior. It does not imply that the system is production-hardened or that a public deployment is available.
+> **Project status:** Research / development prototype. The repository contains multiple entry points and some older documentation. This README treats the checked-in `model_metadata.json` and the implementation on the `main` branch as the source of truth for the active model and current API behavior. It does not imply that the system is production-hardened or that a public deployment is available.
 
 ## Contents
 
@@ -40,6 +40,7 @@
 - [URL scan lifecycle](#url-scan-lifecycle)
 - [Technology stack](#technology-stack)
 - [Quick start](#quick-start)
+- [Vercel and Render deployment](#vercel-and-render-deployment)
 - [Optional Streamlit dashboard](#optional-streamlit-dashboard)
 - [Browser extension](#browser-extension)
 - [Machine-learning model](#machine-learning-model)
@@ -139,7 +140,7 @@ flowchart TB
 - **`service.py`** is the central URL-inference path used by the API. It normalizes input, calls the feature extractor, loads the model bundle, verifies recorded artifact hashes when available, applies model thresholds and explicit local/official-route policies, and prepares structured evidence.
 - **`feature_extractor.py`** normalizes HTTP(S) URLs and extracts deterministic lexical/structural signals from the URL string.
 - **`model_metadata.json`**, **`phishing_model.pkl`**, and **`feature_names.pkl`** form the active inference bundle expected at the repository root.
-- **`frontend/`** provides the React client and dashboard navigation. Its API client uses `VITE_API_BASE_URL`, defaulting to `http://localhost:5000`.
+- **`frontend/`** provides the React client and dashboard navigation. Its API client uses `VITE_API_BASE_URL`; the localhost default applies only during development.
 - **`extenison/`** is the directory name used by the existing Manifest V3 extension. Its spelling is retained so the documented path matches the repository.
 - **`app.py`** contains the optional Streamlit “VIGIL + NeuroGuard AI” interface. It has a local system-monitor tab and a separate phishing-analysis tab.
 - **Threat feed, scam-case, and legal-knowledge modules** provide the data/services consumed by their corresponding Flask route groups.
@@ -207,7 +208,7 @@ The scheduler is started with an initial sync by default. Set `VIGIL_DISABLE_SCH
 | React client | React 19, TypeScript, Vite, Tailwind CSS 4, Motion, Lucide icons |
 | Browser extension | Manifest V3, JavaScript service worker, popup and blocked-page flow |
 | Optional monitor | Streamlit, `psutil`, `streamlit-autorefresh` in the declared dependencies |
-| Persistence | SQLite for URL scan history; dedicated stores for the feed, scam cases, and legal knowledge |
+| Persistence | Shared SQLite file for URL scan history, threat indicators, and scam cases; legal knowledge is packaged data |
 | Tests / browser QA | pytest, Vitest, jsdom, Playwright-based browser QA, Node's test runner for extension tests |
 
 The frontend manifest declares Node.js `>=24.15.0`. `requirements.txt` does not pin a single Python version, so use a Python release compatible with the declared packages and the installed scikit-learn artifact.
@@ -219,8 +220,8 @@ These steps run the main Flask API and React web application locally. Use two te
 ### 1. Clone the target branch
 
 ```powershell
-git clone --branch final --single-branch https://github.com/himanshusingla7507-design/VIGIL-AI.git
-cd VIGIL-AI
+git clone --branch main --single-branch https://github.com/ADI2NOOB4U/VIGILANT-AI.git
+cd VIGILANT-AI
 ```
 
 ### 2. Create the Python environment
@@ -288,7 +289,7 @@ npm run dev
 
 Open the local URL printed by Vite; the configured development port is `5173`, normally `http://localhost:5173`.
 
-The frontend API client defaults to `http://localhost:5000`. If your backend uses a different local URL, set the variable before launching Vite. Example for PowerShell:
+The frontend API client defaults to `http://localhost:5000` in development. If your backend uses a different local URL, set the variable before launching Vite. Example for PowerShell:
 
 ```powershell
 $env:VITE_API_BASE_URL = "http://127.0.0.1:5000"
@@ -296,6 +297,73 @@ npm run dev
 ```
 
 The environment variable must be set in the frontend terminal and before `npm run dev`.
+
+## Vercel and Render deployment
+
+The Render Blueprint in [`render.yaml`](./render.yaml) describes the Flask API
+service. It selects the `main` branch, repository root, Python 3.12.11, the
+locked Python dependencies, a Gunicorn threaded WSGI server bound to Render's
+`$PORT`, and `/health` as the health check. The one-GiB persistent disk is
+mounted at `/var/data`; the existing `VIGIL_DB_PATH` setting points scan
+history, scam cases, and threat indicators at the same persistent SQLite file.
+The model files required by inference (`phishing_model.pkl`, `feature_names.pkl`,
+and `model_metadata.json`) are checked in at the repository root. Training
+datasets are not required for runtime inference.
+
+The disk requires a paid Render web-service plan. This configuration is for a
+single service instance; SQLite on a Render disk is not a multi-instance
+database. Connect the `ADI2NOOB4U/VIGILANT-AI` repository and select `main` when
+creating the Blueprint. Render prompts for `VIGIL_CORS_ORIGINS`; enter the exact
+production origin you intend to assign to Vercel, such as
+`https://your-project.vercel.app` (no path or trailing slash). After the first
+Vercel deployment, confirm the assigned origin and manually update the Render
+variable if it differs. Add any custom production frontend origin explicitly,
+separated by commas. Do not use `*`. The generated Render service origin is
+available in the Render dashboard after service creation.
+
+Configure Vercel with:
+
+| Setting | Value |
+|---|---|
+| Repository / production branch | `ADI2NOOB4U/VIGILANT-AI` / `main` |
+| Framework preset | Vite |
+| Root directory | `frontend` |
+| Install command | `npm ci` |
+| Build command | `npm run build` |
+| Output directory | `dist` |
+| Node.js version | 24.x (the package requires `>=24.15.0`) |
+| Environment variable | `VITE_API_BASE_URL=https://<your-render-service>.onrender.com` |
+| Environment | Production (and Preview only if its origin is also added to Render CORS) |
+
+Set `VITE_API_BASE_URL` to the Render service's public origin without a trailing
+slash. Vite embeds `VITE_*` values in public browser code: this variable must
+contain only the API URL, never a key or secret. The frontend has no URL-based
+page router, so a Vercel SPA rewrite is not currently needed. After the first
+Vercel deployment, add its exact production origin to Render's
+`VIGIL_CORS_ORIGINS` and redeploy/restart the API.
+
+The browser request flow is browser → Vercel static frontend →
+`VITE_API_BASE_URL` Render API → `/scan` → checked-in model artifacts → JSON
+response. Verify the Render API at `https://<your-render-service>.onrender.com/health`;
+it should return HTTP 200 with `status: "ok"` and `model_loaded: true`. Then
+verify `/model-info` returns the expected model version, and submit a benign test
+URL through the deployed frontend. In browser developer tools, confirm the
+`POST /scan` request targets the Render origin and succeeds without a CORS
+error. A command-line smoke test is:
+
+```powershell
+curl.exe -fsS https://<your-render-service>.onrender.com/health
+curl.exe -fsS -H "Content-Type: application/json" -d '{"url":"https://example.com/"}' https://<your-render-service>.onrender.com/scan
+```
+
+`VIGIL_CORS_ORIGINS` restricts browser cross-origin access; it is not
+authentication. The API currently has no route authentication or rate limiting,
+and includes state-changing history, feed-sync, and test-injection endpoints.
+Do not treat CORS as protection against direct clients; add access controls and
+abuse limits before relying on this public service for sensitive or
+high-availability production use. The optional feed integrations need no secret
+for their default public sources; configure their existing provider credentials
+only if using a corresponding premium/private source.
 
 ### 5. Optional Windows launcher
 
@@ -652,7 +720,10 @@ The illustrative probability and simplified `evidence` array above are placehold
 | `503` | Model bundle unavailable or integrity/load check failed |
 | `500` | Unexpected scan error; detailed filesystem information is not returned in the client response |
 
-The API route code does not provide authentication. Keep it bound to a trusted local environment until access control, CORS, and operational hardening have been added.
+The API route code does not provide authentication. CORS limits browser origins
+but does not protect routes from direct clients. Review the public route surface
+and add access control and abuse protection before using this API for sensitive
+or high-impact workloads.
 
 ## Configuration
 
@@ -661,13 +732,17 @@ The API route code does not provide authentication. Keep it bound to a trusted l
 | `VIGIL_PORT` | `5000` | Selects the port used by the development Flask runner |
 | `VIGIL_DEBUG` | Disabled unless set to `1`, `true`, or `yes` | Enables additional backend scan diagnostics; review logs carefully because the normalized URL may include path/query data |
 | `VIGIL_DISABLE_SCHEDULER` | Scheduler enabled unless set to `1`, `true`, or `yes` | Disables automatic threat-feed scheduler startup, useful for isolated tests |
-| `VITE_API_BASE_URL` | `http://localhost:5000` | API base URL used by the React frontend |
+| `VIGIL_CORS_ORIGINS` | `http://localhost:5173` when unset | Comma-separated exact HTTP(S) origins allowed by Flask-CORS; configure the Vercel production origin on Render |
+| `VIGIL_DB_PATH` | `<repository root>/vigil_history.sqlite3` | Shared SQLite file used by API scan history, threat intelligence, and scam case storage |
+| `VITE_API_BASE_URL` | `http://localhost:5000` in development; same-origin URLs in production if unset | API base URL used by the React frontend; set to the Render origin in Vercel |
 
-The code's `CORS` initialization currently allows `*` origins. This does **not** provide authentication and should not be read as a safe production configuration. See [Security notes](#security-notes) before exposing any service beyond localhost.
+`VIGIL_CORS_ORIGINS` accepts exact origins only; wildcard origins, paths, and
+credentials in origins are rejected. This does **not** provide authentication.
+See [Security notes](#security-notes) before exposing any service publicly.
 
 ## Testing and quality checks
 
-These are the documented local checks available in the repository. They are provided as commands to run; this README has not executed them against a fresh clone.
+The CI workflow runs the following backend, frontend, and extension checks:
 
 ### Python backend and data scripts
 
@@ -768,14 +843,13 @@ VIGIL is security-related software, but the current source should be treated as 
 
 ### Hardening required before any public deployment
 
-1. **Restrict CORS.** `api.py` currently uses a wildcard origin policy. Replace it with an explicit allowlist for the actual trusted frontend origins.
-2. **Add authentication and authorization.** The API routes do not currently enforce a user or service identity. Do not expose history-clearing, manual-sync, or test-injection routes to untrusted clients.
-3. **Protect the test-injection endpoint.** `POST /threat-feed/test-inject` can add synthetic indicators. Disable it or guard it behind a development-only configuration and authorization.
-4. **Add rate limits and abuse controls.** The visible route code has request-size validation, but a rate-limiting layer is not established by that alone.
-5. **Review diagnostic logging.** `VIGIL_DEBUG` logs normalized URL information. URL paths and query parameters can contain reset tokens, session material, email addresses, or other sensitive values; do not enable detailed diagnostics on sensitive traffic without redaction.
-6. **Validate external feed operations.** Feed synchronization makes external requests. Review provider URLs, outbound-network rules, parsing, timeouts, and failure handling before deploying it in a restricted environment.
-7. **Protect local history and artifacts.** Apply file permissions and backups appropriate to the host. Never load untrusted pickle files.
-8. **Separate development and production settings.** Do not assume `python api.py`, the convenience batch file, or the `Procfile` alone yields a hardened production service.
+1. **Add authentication and authorization.** The API routes do not currently enforce a user or service identity. Do not expose history-clearing, manual-sync, or test-injection routes to untrusted clients.
+2. **Protect the test-injection endpoint.** `POST /threat-feed/test-inject` can add synthetic indicators. Disable it or guard it behind a development-only configuration and authorization.
+3. **Add rate limits and abuse controls.** The visible route code has request-size validation, but a rate-limiting layer is not established by that alone.
+4. **Review diagnostic logging.** `VIGIL_DEBUG` logs normalized URL information. URL paths and query parameters can contain reset tokens, session material, email addresses, or other sensitive values; do not enable detailed diagnostics on sensitive traffic without redaction.
+5. **Validate external feed operations.** Feed synchronization makes external requests. Review provider URLs, outbound-network rules, parsing, timeouts, and failure handling before deploying it in a restricted environment.
+6. **Protect local history and artifacts.** Apply file permissions and backups appropriate to the host. Never load untrusted pickle files.
+7. **Separate development and production settings.** Do not assume `python api.py`, the convenience batch file, or the `Procfile` alone yields a hardened production service.
 
 The API binds to `127.0.0.1` when started with `python api.py`, which is suitable for local development. If another server or deployment configuration binds it to a public interface, all of the above controls become more important.
 
@@ -797,7 +871,7 @@ The API binds to `127.0.0.1` when started with `python api.py`, which is suitabl
 - **Dataset licensing/provenance:** hashes and file paths make an artifact traceable within the repository but do not independently establish collection rights or legal reuse terms.
 - **Threat-feed availability:** a feed view is only as current as the upstream sources and sync pipeline. An empty feed does not prove that there are no threats.
 - **Legal information:** the cyber-law module is a reference tool, not legal advice. Laws, regulations, official links, and reporting procedures can change.
-- **Deployment hardening:** wildcard CORS and missing route authentication make the current API unsuitable for public exposure without remediation.
+- **Deployment hardening:** CORS is configurable with an explicit origin allowlist, but missing route authentication and rate limiting still make the API unsuitable for sensitive or high-impact public use.
 
 ## Troubleshooting
 
@@ -847,7 +921,7 @@ The items below are **proposals**, not statements of completed work or promised 
 
 ### Near-term priorities
 
-- [ ] Restrict CORS to explicit frontend origins and add API authentication for non-local deployments.
+- [ ] Add API authentication and rate limits for non-local deployments; CORS is already restricted to explicitly configured origins.
 - [ ] Disable or protect the threat-feed test-injection endpoint outside test mode.
 - [ ] Reconcile v2.1.0 documentation, v3.0.0 metadata, and older dataset audit notes.
 - [ ] Add one canonical, version-matched command for reproducing the v3.0.0 training and evaluation pipeline.
