@@ -183,6 +183,32 @@ test("SAFE and SUSPICIOUS verdicts allow top-level navigation", async t => {
   }
 });
 
+test("verified VIT Bhopal policy verdict allows navigation despite a high raw model score", async () => {
+  const url = "https://vtop.vitbhopal.ac.in/vtop/open/page";
+  const responseResult = result(url, "SAFE");
+  responseResult.model_probability = 0.999;
+  responseResult.probability = thresholds.safe - 0.000001;
+  responseResult.effective_probability = responseResult.probability;
+  responseResult.probability_source = "verified_official_route_policy";
+  responseResult.reputation = {
+    applied: true,
+    host: "vtop.vitbhopal.ac.in",
+    source: "verified_official_route_policy",
+    model_probability: 0.999,
+    effective_probability: responseResult.effective_probability
+  };
+  responseResult.evidence = [{
+    id: "verified_official_route_policy",
+    detail: "The calibrated model score (0.999000) was overridden by this policy."
+  }];
+  const worker = loadWorker(async () => new Response(JSON.stringify(responseResult), {status: 200}));
+
+  await worker.navigate({tabId: 7, frameId: 0, url});
+  await waitForWorker();
+
+  assert.deepEqual(worker.updates, []);
+});
+
 test("only an explicit PHISHING verdict redirects to the blocked page", async () => {
   const phishingUrl = "http://secure-login-paypal-account.xyz/";
   const worker = loadWorker(async () => new Response(JSON.stringify(result(phishingUrl, "PHISHING")), {status: 200}));

@@ -221,7 +221,11 @@ def _verified_official_route_decision(normalized_url, features, model_probabilit
             "applied": True,
             "host": host,
             "source": "verified_official_route_policy",
-            "reason": "An exact verified official host and approved non-redirect route matched; the raw ML score remains available for audit.",
+            "reason": (
+                "An exact verified official host and approved non-redirect route matched. "
+                f"The calibrated model score ({model_probability:.6f}) was overridden by "
+                f"this policy; the effective score is {effective_probability:.6f}."
+            ),
             "model_probability": model_probability,
             "effective_probability": effective_probability,
         }

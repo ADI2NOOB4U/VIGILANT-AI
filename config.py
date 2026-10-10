@@ -35,6 +35,7 @@ VERIFIED_OFFICIAL_HOSTS = {
     "www.instagram.com": {"/accounts/onetap/"},
     "cybercrime.gov.in": {"/"},
     "www.cybercrime.gov.in": {"/"},
+    "vtop.vitbhopal.ac.in": {"/vtop/open/page"},
     "www.indiacode.nic.in": {
         "/handle/123456789/1522",
         "/handle/123456789/1999",

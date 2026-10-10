@@ -326,6 +326,43 @@ def test_verified_host_policy_does_not_trust_lookalikes_or_unapproved_subdomains
         assert result["reputation"]["applied"] is False
 
 
+def test_vit_bhopal_vtop_route_overrides_high_model_score_with_explicit_evidence(monkeypatch):
+    import service
+
+    url = "https://vtop.vitbhopal.ac.in/vtop/open/page"
+    model, names, metadata = service.load_model_bundle()
+    monkeypatch.setattr(model, "predict_proba", lambda _row: [[0.001, 0.999]])
+    result = service._prediction(url, extract_features(url), model, names, metadata)
+
+    assert result["label"] == "SAFE"
+    assert result["model_probability"] == 0.999
+    assert result["effective_probability"] < result["thresholds"]["safe"]
+    assert result["probability_source"] == "verified_official_route_policy"
+    policy_evidence = next(item for item in result["evidence"] if item["id"] == "verified_official_route_policy")
+    assert policy_evidence["value"] == "vtop.vitbhopal.ac.in"
+    assert "model score (0.999000) was overridden" in policy_evidence["detail"]
+    assert f"effective score is {result['effective_probability']:.6f}" in policy_evidence["detail"]
+
+
+@pytest.mark.parametrize("url", [
+    "https://vtop.vitbhopal.ac.in.attacker.example/vtop/open/page",
+    "https://sub.vtop.vitbhopal.ac.in/vtop/open/page",
+    "https://vtop.vitbhopal.ac.in/",
+    "https://vtop.vitbhopal.ac.in/vtop/open/page/",
+])
+def test_vit_bhopal_vtop_policy_rejects_lookalikes_and_unapproved_routes(url, monkeypatch):
+    import service
+
+    model, names, metadata = service.load_model_bundle()
+    monkeypatch.setattr(model, "predict_proba", lambda _row: [[0.001, 0.999]])
+    result = service._prediction(url, extract_features(url), model, names, metadata)
+
+    assert result["label"] == "PHISHING"
+    assert result["model_probability"] == result["effective_probability"] == 0.999
+    assert result["probability_source"] == "model"
+    assert result["reputation"]["applied"] is False
+
+
 def test_verified_official_route_policy_rejects_redirects_and_authority_tricks(monkeypatch):
     import service
 
