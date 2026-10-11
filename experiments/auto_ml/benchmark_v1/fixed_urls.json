@@ -15,7 +15,20 @@
     "https://www.bing.com/search?q=python&count=20&form=QBLH&sp=-1",
     "https://en.wikipedia.org/wiki/URL#Components",
     "https://www.google.com/search?q=URL%20encoding%20examples",
-    "https://www.google.com/search?q=legitimate+dynamic+url+baseline+with+a+deliberately+long+query+containing+several+ordinary+words+for+testing+how+the+production+model+responds+to+long+search+queries"
+    "https://www.google.com/search?q=legitimate+dynamic+url+baseline+with+a+deliberately+long+query+containing+several+ordinary+words+for+testing+how+the+production+model+responds+to+long+search+queries",
+    "https://vitbhopal.ac.in/",
+    "https://vtop.vitbhopal.ac.in/vtop",
+    "https://vtop.vitbhopal.ac.in/vtop/login",
+    "https://vtop.vitbhopal.ac.in/vtop/open/page",
+    "https://vtop.vitbhopal.ac.in/vtop/prelogin/setup",
+    "https://home.iitd.ac.in/",
+    "https://www.iisc.ac.in/web/",
+    "https://www.iitm.ac.in/",
+    "https://www.iitk.ac.in/",
+    "https://www.iitkgp.ac.in/",
+    "https://www.iith.ac.in/",
+    "https://www.nitt.edu/",
+    "https://www.iiit.ac.in/"
   ],
   "counterfactual_legitimate_urls": [
     {
@@ -579,5 +592,5 @@
       "model_version": "v2.1.0"
     }
   ],
-  "source": "Reports existing before this experiment; URLs are scored only and are not added as training rows."
+  "source": "Reports existing before this experiment; URLs are scored only and are not added as training rows. Added official Indian academic homepage URLs and the institution-linked VIT Bhopal VTOP routes as evaluation-only legitimate examples. These URLs must be periodically reverified; they are not training data, and no model prediction was used to assign their legitimate label."
 }
