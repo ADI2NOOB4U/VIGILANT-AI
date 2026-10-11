@@ -363,7 +363,7 @@ def test_vit_bhopal_vtop_routes_override_high_model_score_with_explicit_evidence
     "https://vtop.vitbhopal.ac.in/vtop/other",
     "https://vtop.vitbhopal.ac.in/vtop?next=https://attacker.example",
     "https://vtop.vitbhopal.ac.in/vtop/login?url=https://attacker.example",
-    "https://vtop.vitbhopal.ac.in:443/vtop/login",
+    "https://vtop.vitbhopal.ac.in:8443/vtop/login",
     "https://vtop.vitbhopal.ac.in.attacker.example/vtop",
     "https://vtop.vitbhopal.ac.in.attacker.example/vtop/login",
     "https://sub.vtop.vitbhopal.ac.in/vtop/login",
