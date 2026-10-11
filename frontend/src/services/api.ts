@@ -17,15 +17,45 @@ import type {
   ThreatSourceStatus,
 } from '../types'
 
-const baseUrl = (
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'http://localhost:5000' : '')
-).replace(/\/$/, '')
+export const DEFAULT_PRODUCTION_API_BASE_URL = 'https://vigilant-ai-api.onrender.com'
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+function isLocalDevelopmentOrigin(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+}
+
+export function resolveApiBaseUrl(value = import.meta.env.VITE_API_BASE_URL, isDev = import.meta.env.DEV): string {
+  const candidate = (value ?? '').trim()
+  const fallback = isDev ? 'http://localhost:5000' : DEFAULT_PRODUCTION_API_BASE_URL
+  const input = candidate || fallback
+
+  try {
+    const url = new URL(input)
+    const protocol = url.protocol.toLowerCase()
+    const isLocalHttp = protocol === 'http:' && isLocalDevelopmentOrigin(url.hostname)
+
+    if (url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+      throw new Error('The API base URL must be an exact origin without a path, query, hash, or credentials.')
+    }
+
+    if (protocol !== 'https:' && !isLocalHttp) {
+      throw new Error('Unsupported API base URL protocol. Use HTTPS in production and HTTP only for localhost-style local development origins.')
+    }
+
+    return url.origin
+  } catch (error) {
+    if (candidate) {
+      throw new Error(`VITE_API_BASE_URL must be an exact backend origin, received "${value}".`)
+    }
+    return fallback
+  }
+}
+
+export const baseUrl = resolveApiBaseUrl()
+
+async function request<T>(path: string, init?: RequestInit, timeoutMs = 15000): Promise<T> {
   let response: Response
   const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), 15000)
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
   try {
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
@@ -33,13 +63,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     })
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') throw new Error('The analysis service took too long to respond.')
-    throw new Error('VIGIL could not reach the backend service.')
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(`The VIGIL backend did not respond before the ${timeoutMs} ms timeout.`)
+    }
+    const detail = error instanceof Error ? ` (${error.message})` : ''
+    throw new Error(`VIGIL could not reach the backend service.${detail}`)
   } finally {
     window.clearTimeout(timeout)
   }
-  const body = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(body?.message || 'Request failed. Try again.')
+
+  let body: any = null
+  try {
+    body = await response.json()
+  } catch {
+    body = null
+  }
+
+  if (!response.ok) {
+    throw new Error(body?.message || 'Request failed. Try again.')
+  }
   return body as T
 }
 
@@ -58,7 +100,7 @@ export const api = {
   clearHistory: () => request<{ status: string }>('/history', { method: 'DELETE' }),
   getModelInfo: () => request<ModelInfo>('/model-info'),
   getScanAnalytics: () => request<ScanAnalytics>('/analysis/scan-analytics'),
-  getHealth: () => request<HealthResponse>('/health'),
+  getHealth: (timeoutMs = 65000) => request<HealthResponse>('/health', undefined, timeoutMs),
 
   // MODULE 1: Threat Intelligence Feed API
   getThreatIndicators: (params?: {

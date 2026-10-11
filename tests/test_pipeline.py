@@ -327,6 +327,43 @@ def test_verified_host_policy_does_not_trust_lookalikes_or_unapproved_subdomains
 
 
 @pytest.mark.parametrize("url", [
+    "https://vigilant-ai-frontend.vercel.app/",
+    "https://VIGILANT-AI-FRONTEND.vercel.app/",
+])
+def test_vigil_production_root_is_approved_exactly(url, monkeypatch):
+    import service
+
+    model, names, metadata = service.load_model_bundle()
+    monkeypatch.setattr(model, "predict_proba", lambda _row: [[0.001, 0.999]])
+    result = service._prediction(url, extract_features(url), model, names, metadata)
+
+    assert result["label"] == "SAFE"
+    assert result["effective_probability"] < result["thresholds"]["safe"]
+    assert result["probability_source"] == "verified_official_route_policy"
+    assert result["reputation"]["applied"] is True
+    assert result["reputation"]["host"] == "vigilant-ai-frontend.vercel.app"
+
+
+@pytest.mark.parametrize("url", [
+    "https://vigilant-ai-frontend.vercel.app.attacker.example/",
+    "https://vigilant-ai-frontend.vercel.app:8443/",
+    "https://vigilant-ai-frontend.vercel.app/scan",
+    "https://vigilant-ai-frontend.vercel.app/?next=https://evil.example",
+    "https://user@vigilant-ai-frontend.vercel.app/",
+])
+def test_vigil_production_policy_rejects_lookalikes_authority_tricks_and_unapproved_routes(url, monkeypatch):
+    import service
+
+    model, names, metadata = service.load_model_bundle()
+    monkeypatch.setattr(model, "predict_proba", lambda _row: [[0.001, 0.999]])
+    result = service._prediction(url, extract_features(url), model, names, metadata)
+
+    assert result["label"] == "PHISHING"
+    assert result["probability_source"] == "model"
+    assert result["reputation"]["applied"] is False
+
+
+@pytest.mark.parametrize("url", [
     "https://vtop.vitbhopal.ac.in/vtop",
     "https://vtop.vitbhopal.ac.in/vtop/",
     "https://vtop.vitbhopal.ac.in/vtop/login",

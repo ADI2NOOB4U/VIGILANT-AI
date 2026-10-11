@@ -19,33 +19,38 @@ export default function App() {
   const [targetLegalInstrumentId, setTargetLegalInstrumentId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    let active = true
-    let retries = 0
+    let cancelled = false
+    let timer: number | undefined
 
     const checkHealth = async () => {
+      if (cancelled) return
+
       try {
-        const value = await api.getHealth()
-        if (!active) return
+        const value = await api.getHealth(65000)
+        if (cancelled) return
+
         if (value.status === 'ok' && value.model_loaded) {
           setHealth(true)
+          timer = window.setTimeout(checkHealth, 15000)
           return
         }
-        throw new Error('Backend is not ready yet.')
+
+        throw new Error('Backend reported an incomplete health state.')
       } catch {
-        if (!active) return
-        retries += 1
-        if (retries <= 20) {
-          setHealth(null)
-          window.setTimeout(checkHealth, 2000)
-          return
-        }
+        if (cancelled) return
         setHealth(false)
+        timer = window.setTimeout(checkHealth, 15000)
       }
     }
 
+    setHealth(null)
     checkHealth()
+
     return () => {
-      active = false
+      cancelled = true
+      if (timer) {
+        window.clearTimeout(timer)
+      }
     }
   }, [])
 

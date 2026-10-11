@@ -45,6 +45,8 @@ export function Shell({
     setMobileMenuOpen(false)
   }
 
+  const serviceState = health === true ? 'online' : health === false ? 'offline' : 'checking'
+
   return (
     <div className="app-shell">
       <CyberBackground />
@@ -89,13 +91,13 @@ export function Shell({
         <div className="topbar-right">
           <div
             className="service-state"
-            aria-label={`Backend ${health === true ? 'online' : health === false ? 'offline' : 'checking'}`}
+            aria-label={`Backend ${serviceState}`}
           >
-            <span className={`state-dot ${health === true ? 'online' : health === false ? 'offline' : 'checking'}`}>
+            <span className={`state-dot ${serviceState}`}>
               <span className="state-ping" />
             </span>
             <span className="state-label">
-              {health === true ? 'Service online' : health === false ? 'Service offline' : 'Checking'}
+              {serviceState === 'online' ? 'Service online' : serviceState === 'offline' ? 'Service offline' : 'Checking'}
             </span>
           </div>
 
