@@ -18,8 +18,8 @@ TRUSTED_DOMAINS = {
 }
 
 # This is deliberately a small, auditable *exact-host* reputation policy, not
-# a brand-name or suffix allowlist.  It exists to prevent URL-shape bias from
-# blocking ordinary routes on verified official sites.  The model score is
+# a brand-name or suffix allowlist. It exists to prevent URL-shape bias from
+# blocking ordinary routes on verified official sites. The model score is
 # always returned unchanged alongside any policy-adjusted decision.
 #
 # Every host is intentionally spelled out: neither arbitrary subdomains nor
@@ -35,11 +35,16 @@ VERIFIED_OFFICIAL_HOSTS = {
     "www.instagram.com": {"/accounts/onetap/"},
     "cybercrime.gov.in": {"/"},
     "www.cybercrime.gov.in": {"/"},
-<<<<<<< HEAD
-    "vtop.vitbhopal.ac.in": {"/vtop", "/vtop/", "/vtop/login", "/vtop/login/", "/vtop/open/page", "/vtop/open/page/", "/vtop/prelogin/setup", "/vtop/prelogin/setup/"},
-=======
-    "vtop.vitbhopal.ac.in": {"/vtop", "/vtop/login", "/vtop/open/page", "/vtop/prelogin/setup"},
->>>>>>> bc66ea6 (fix: improve VTOP false-positive handling)
+    "vtop.vitbhopal.ac.in": {
+        "/vtop",
+        "/vtop/",
+        "/vtop/login",
+        "/vtop/login/",
+        "/vtop/open/page",
+        "/vtop/open/page/",
+        "/vtop/prelogin/setup",
+        "/vtop/prelogin/setup/",
+    },
     "www.indiacode.nic.in": {
         "/handle/123456789/1522",
         "/handle/123456789/1999",
@@ -49,6 +54,7 @@ VERIFIED_OFFICIAL_HOSTS = {
         "/handle/123456789/2013",
     },
 }
+
 AMAZON_SHOPPING_HOSTS = {"amazon.com", "www.amazon.com"}
 
 SUSPICIOUS_TLDS = {".tk", ".ml", ".ga", ".cf", ".xyz", ".top"}
