@@ -96,6 +96,56 @@ SOURCES = [
         "why_legitimate": "UC Berkeley's official university homepage and same-registered-domain academic navigation routes.",
     },
     {
+        "name": "VIT Bhopal University",
+        "url": "https://vitbhopal.ac.in/",
+        "why_legitimate": "Official university homepage; retained URLs must still pass this collector's individual HTTPS and same-registered-domain verification.",
+    },
+    {
+        "name": "VIT Bhopal VTOP Portal",
+        "url": "https://vtop.vitbhopal.ac.in/vtop/open/page",
+        "why_legitimate": "Official VTOP portal linked from VIT Bhopal; every discovered URL must still pass the collector's individual verification rules.",
+    },
+    {
+        "name": "Indian Institute of Technology Delhi",
+        "url": "https://home.iitd.ac.in/",
+        "why_legitimate": "IIT Delhi official homepage and same-registered-domain academic navigation routes.",
+    },
+    {
+        "name": "Indian Institute of Science",
+        "url": "https://www.iisc.ac.in/web/",
+        "why_legitimate": "IISc official institutional website and same-registered-domain academic/research routes.",
+    },
+    {
+        "name": "Indian Institute of Technology Madras",
+        "url": "https://www.iitm.ac.in/",
+        "why_legitimate": "IIT Madras official institutional homepage and same-registered-domain academic navigation routes.",
+    },
+    {
+        "name": "Indian Institute of Technology Kanpur",
+        "url": "https://www.iitk.ac.in/",
+        "why_legitimate": "IIT Kanpur official institutional homepage and same-registered-domain academic navigation routes.",
+    },
+    {
+        "name": "Indian Institute of Technology Kharagpur",
+        "url": "https://www.iitkgp.ac.in/",
+        "why_legitimate": "IIT Kharagpur official institutional homepage and same-registered-domain academic navigation routes.",
+    },
+    {
+        "name": "Indian Institute of Technology Hyderabad",
+        "url": "https://www.iith.ac.in/",
+        "why_legitimate": "IIT Hyderabad official institutional homepage and same-registered-domain academic navigation routes.",
+    },
+    {
+        "name": "National Institute of Technology Tiruchirappalli",
+        "url": "https://www.nitt.edu/",
+        "why_legitimate": "NIT Tiruchirappalli official institutional homepage and same-registered-domain academic navigation routes.",
+    },
+    {
+        "name": "International Institute of Information Technology Hyderabad",
+        "url": "https://www.iiit.ac.in/",
+        "why_legitimate": "IIIT Hyderabad official institutional homepage and same-registered-domain academic navigation routes.",
+    },
+    {
         "name": "GOV.UK",
         "url": "https://www.gov.uk/",
         "why_legitimate": "The UK government's official public services portal and same-registered-domain service routes.",
