@@ -1,7 +1,7 @@
 import { chromium } from 'playwright'
 import fs from 'node:fs/promises'
 
-const viewports = [[320, 720], [375, 812], [768, 1024], [1024, 768], [1366, 768], [1536, 864], [1920, 1080]]
+const viewports = [[320, 720], [360, 780], [375, 812], [390, 844], [430, 932], [768, 1024], [1024, 768], [1280, 800], [1366, 768]]
 const browser = await chromium.launch({ headless: true })
 const output = 'qa-output'
 await fs.mkdir(output, { recursive: true })
@@ -46,9 +46,47 @@ await page.getByRole('heading', { name: 'About VIGIL AI' }).waitFor()
 for (const [width, height] of viewports) {
   await page.setViewportSize({ width, height })
   await page.goto('http://localhost:5173/', { waitUntil: 'networkidle' })
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
-  if (overflow) throw new Error(`Horizontal overflow at ${width}x${height}`)
+  const assertNoHorizontalOverflow = async label => {
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
+    if (overflow) throw new Error(`Horizontal overflow on ${label} at ${width}x${height}`)
+  }
+  await assertNoHorizontalOverflow('Scan')
   if (width <= 375) await page.screenshot({ path: `${output}/scan-${width}.png`, fullPage: true })
+  if (width <= 1100) {
+    const menuButton = page.getByRole('button', { name: 'Open navigation menu' })
+    if (!await menuButton.isVisible()) throw new Error(`Mobile navigation button is not visible at ${width}px`)
+    await menuButton.click()
+    const mobileNavigation = page.getByRole('navigation', { name: 'Mobile navigation' })
+    for (const label of ['Scan', 'ScamWatch Live', 'Scam Broadcasts', 'India Cyber Law', 'History', 'Analysis', 'About']) {
+      if (!await mobileNavigation.getByRole('button', { name: label }).isVisible()) {
+        throw new Error(`Mobile navigation is missing ${label} at ${width}px`)
+      }
+    }
+    await page.keyboard.press('Escape')
+    if (await mobileNavigation.count()) throw new Error(`Escape did not close mobile navigation at ${width}px`)
+
+    if (width === 320 || width === 768) {
+      for (const label of ['ScamWatch Live', 'Scam Broadcasts', 'India Cyber Law', 'History', 'Analysis', 'About']) {
+        await page.getByRole('button', { name: 'Open navigation menu' }).click()
+        await page.getByRole('navigation', { name: 'Mobile navigation' }).getByRole('button', { name: label }).click()
+        await page.locator('main').waitFor()
+        await page.waitForTimeout(100)
+        await assertNoHorizontalOverflow(label)
+        if (width === 320 && label === 'History') {
+          const clearHistoryButton = page.getByRole('button', { name: 'Clear scan history' })
+          if (await clearHistoryButton.isVisible()) {
+            await clearHistoryButton.click()
+            const dialog = page.getByRole('dialog')
+            const bounds = await dialog.boundingBox()
+            if (!bounds || bounds.x < 0 || bounds.y < 0 || bounds.x + bounds.width > width || bounds.y + bounds.height > height) {
+              throw new Error(`History confirmation dialog does not fit within ${width}x${height}`)
+            }
+            await page.getByRole('button', { name: 'Keep History' }).click()
+          }
+        }
+      }
+    }
+  }
 }
 
 await page.emulateMedia({ reducedMotion: 'reduce' })

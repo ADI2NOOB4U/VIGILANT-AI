@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import {
   Activity,
@@ -29,6 +29,8 @@ export function Shell({
   children: ReactNode
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const mobileNavigationRef = useRef<HTMLElement>(null)
 
   const links: [Page, string, typeof ScanLine][] = [
     ['scan', 'Scan', ScanLine],
@@ -41,11 +43,30 @@ export function Shell({
   ]
 
   const handleNav = (target: Page) => {
+    const wasMobileMenuOpen = mobileMenuOpen
     onNavigate(target)
     setMobileMenuOpen(false)
+    if (wasMobileMenuOpen) {
+      window.requestAnimationFrame(() => menuButtonRef.current?.focus())
+    }
   }
 
   const serviceState = health === true ? 'online' : health === false ? 'offline' : 'checking'
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+
+    mobileNavigationRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false)
+        window.requestAnimationFrame(() => menuButtonRef.current?.focus())
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [mobileMenuOpen])
 
   return (
     <div className="app-shell">
@@ -102,9 +123,11 @@ export function Shell({
           </div>
 
           <button
+            ref={menuButtonRef}
             className="mobile-menu-toggle"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle navigation menu"
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-controls={mobileMenuOpen ? 'mobile-navigation' : undefined}
             aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -120,18 +143,21 @@ export function Shell({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
         >
-          {links.map(([key, label, Icon]) => (
-            <button
-              className={`mobile-nav-btn ${page === key ? 'active' : ''}`}
-              key={key}
-              onClick={() => handleNav(key)}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-              {key === 'feed' && <span className="nav-live-dot" />}
-              {key === 'broadcasts' && <span className="nav-broadcast-beacon" />}
-            </button>
-          ))}
+          <nav id="mobile-navigation" ref={mobileNavigationRef} aria-label="Mobile navigation">
+            {links.map(([key, label, Icon]) => (
+              <button
+                className={`mobile-nav-btn ${page === key ? 'active' : ''}`}
+                key={key}
+                onClick={() => handleNav(key)}
+                aria-current={page === key ? 'page' : undefined}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{label}</span>
+                {key === 'feed' && <span className="nav-live-dot" aria-hidden="true" />}
+                {key === 'broadcasts' && <span className="nav-broadcast-beacon" aria-hidden="true" />}
+              </button>
+            ))}
+          </nav>
         </motion.div>
       )}
 
