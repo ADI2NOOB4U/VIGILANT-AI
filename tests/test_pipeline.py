@@ -327,8 +327,14 @@ def test_verified_host_policy_does_not_trust_lookalikes_or_unapproved_subdomains
 
 
 @pytest.mark.parametrize("url", [
+    "https://vtop.vitbhopal.ac.in/vtop",
+    "https://vtop.vitbhopal.ac.in/vtop/",
+    "https://vtop.vitbhopal.ac.in/vtop/login",
+    "https://vtop.vitbhopal.ac.in/vtop/login/",
     "https://vtop.vitbhopal.ac.in/vtop/open/page",
+    "https://vtop.vitbhopal.ac.in/vtop/open/page/",
     "https://vtop.vitbhopal.ac.in/vtop/prelogin/setup",
+    "https://vtop.vitbhopal.ac.in/vtop/prelogin/setup/",
 ])
 def test_vit_bhopal_vtop_routes_override_high_model_score_with_explicit_evidence(url, monkeypatch):
     import service
@@ -348,18 +354,25 @@ def test_vit_bhopal_vtop_routes_override_high_model_score_with_explicit_evidence
 
 
 @pytest.mark.parametrize("url", [
-    "https://vtop.vitbhopal.ac.in.attacker.example/vtop/open/page",
-    "https://vtop.vitbhopal.ac.in.attacker.example/vtop/prelogin/setup",
-    "https://sub.vtop.vitbhopal.ac.in/vtop/open/page",
-    "https://sub.vtop.vitbhopal.ac.in/vtop/prelogin/setup",
     "https://vtop.vitbhopal.ac.in/",
-    "https://vtop.vitbhopal.ac.in/vtop/open/page/",
+    "https://vtop.vitbhopal.ac.in/unapproved",
+    "https://vtop.vitbhopal.ac.in/vtop/login-attacker",
+    "https://vtop.vitbhopal.ac.in/vtop/login/attacker",
+    "https://vtop.vitbhopal.ac.in/vtop/open/page/attacker",
     "https://vtop.vitbhopal.ac.in/vtop/prelogin/setup/extra",
     "https://vtop.vitbhopal.ac.in/vtop/other",
+    "https://vtop.vitbhopal.ac.in/vtop?next=https://attacker.example",
+    "https://vtop.vitbhopal.ac.in/vtop/login?url=https://attacker.example",
+    "https://vtop.vitbhopal.ac.in:443/vtop/login",
+    "https://vtop.vitbhopal.ac.in.attacker.example/vtop",
+    "https://vtop.vitbhopal.ac.in.attacker.example/vtop/login",
+    "https://sub.vtop.vitbhopal.ac.in/vtop/login",
+    "http://vtop.vitbhopal.ac.in/vtop",
+    "http://vtop.vitbhopal.ac.in/vtop/login",
     "http://vtop.vitbhopal.ac.in/vtop/open/page",
     "http://vtop.vitbhopal.ac.in/vtop/prelogin/setup",
 ])
-def test_vit_bhopal_vtop_policy_rejects_lookalikes_and_unapproved_routes(url, monkeypatch):
+def test_vit_bhopal_vtop_policy_rejects_lookalikes_redirects_and_unapproved_routes(url, monkeypatch):
     import service
 
     model, names, metadata = service.load_model_bundle()
@@ -370,7 +383,6 @@ def test_vit_bhopal_vtop_policy_rejects_lookalikes_and_unapproved_routes(url, mo
     assert result["model_probability"] == result["effective_probability"] == 0.999
     assert result["probability_source"] == "model"
     assert result["reputation"]["applied"] is False
-
 
 def test_verified_official_route_policy_rejects_redirects_and_authority_tricks(monkeypatch):
     import service
