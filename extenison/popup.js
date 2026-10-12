@@ -107,8 +107,8 @@ async function scanCurrent() {
   setProtection("", "Checking");
   activeRequest = sendWorkerMessage({type: "HEALTH_CHECK"}).then(health => {
     if (!health || health.state === "BACKEND_OFFLINE") {
-      clearResult(); setState("ERROR", "Backend unavailable", "VIGIL could not reach the local Flask service."); setProtection("offline", "Offline");
-      $("notice").hidden = false; $("notice").textContent = "Start the backend at http://127.0.0.1:5000, then choose Retry.";
+      clearResult(); setState("ERROR", "VIGIL backend unavailable.", "The hosted VIGIL API could not be reached. It may be starting up. Choose Retry."); setProtection("offline", "Offline");
+      $("notice").hidden = false; $("notice").textContent = "The hosted VIGIL API could not be reached. It may be starting up. Choose Retry.";
       return null;
     }
     setState("SCANNING", "Scanning", "Analyzing the current URL with VIGIL.");
@@ -125,8 +125,8 @@ async function scanCurrent() {
     currentUrl = response.url || currentUrl;
     $("site-url").textContent = hostLabel(currentUrl);
     if (response.state === "OFFLINE") {
-      clearResult(); setState("ERROR", "Backend unavailable", "VIGIL could not complete this scan."); setProtection("offline", "Offline");
-      $("notice").hidden = false; $("notice").textContent = "Try again when the local Flask service is running. No phishing verdict was assumed.";
+      clearResult(); setState("ERROR", "VIGIL backend unavailable.", "The scan could not be completed. No phishing verdict was assumed."); setProtection("offline", "Offline");
+      $("notice").hidden = false; $("notice").textContent = "The hosted VIGIL API could not be reached. It may be starting up. Choose Retry.";
       return;
     }
     renderResult(response.result);
@@ -138,8 +138,8 @@ async function scanCurrent() {
       $("notice").hidden = false; $("notice").textContent = "The popup could not reach the VIGIL service worker. The backend status is unknown.";
       return;
     }
-    setState("ERROR", "Scan unavailable", "VIGIL could not complete this scan."); setProtection("offline", "Scan error");
-    $("notice").hidden = false; $("notice").textContent = "The scan did not complete. Choose Retry to try again.";
+    setState("ERROR", "Scan unavailable", "The scan could not be completed. No phishing verdict was assumed."); setProtection("offline", "Scan error");
+    $("notice").hidden = false; $("notice").textContent = "The scan could not be completed. No phishing verdict was assumed. Choose Retry to try again.";
   }).finally(() => { activeRequest = null; $("scan-btn").disabled = false; });
   return activeRequest;
 }

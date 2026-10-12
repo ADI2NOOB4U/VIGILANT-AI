@@ -1,15 +1,14 @@
 # VIGIL browser extension
 
-The extension is a Manifest V3 client for the local VIGIL Flask service. It does not contain an ML model, calculate a second score, or maintain separate phishing rules.
+The extension is a Manifest V3 client for the hosted VIGIL API. It does not contain an ML model, calculate a second score, or maintain separate phishing rules.
 
 ## Load locally
 
-1. Start the backend from the repository root with `python api.py`.
-2. Open the Chromium extensions page and enable Developer mode.
-3. Choose **Load unpacked** and select the `extenison/` directory.
-4. Pin VIGIL, then open the toolbar popup on an `http://` or `https://` page.
+1. Open the Chromium extensions page and enable Developer mode.
+2. Choose **Load unpacked** and select the `extenison/` directory.
+3. Pin VIGIL, then open the toolbar popup on an `http://` or `https://` page.
 
-The extension currently targets `http://127.0.0.1:5000`. Its only host permission is the local API origin. The `tabs` permission reads the active tab URL, `webNavigation` supports top-level phishing interception, and `storage` holds ephemeral block-page state across a service-worker restart.
+The extension targets `https://vigilant-ai-api.onrender.com`. Its only host permission is this API origin. Health checks wait up to 65 seconds for the hosted service to wake, popup scans allow up to 90 seconds, and automatic navigation scans are bounded to 15 seconds. The `tabs` permission reads the active tab URL, `webNavigation` supports top-level phishing interception, and `storage` holds ephemeral block-page state across a service-worker restart.
 
 ## Runtime flow
 

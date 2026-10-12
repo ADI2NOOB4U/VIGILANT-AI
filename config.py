@@ -34,6 +34,7 @@ VERIFIED_OFFICIAL_HOSTS = {
     "www.canva.com": {"/templates"},
     "www.instagram.com": {"/accounts/onetap/"},
     "vigilant-ai-frontend.vercel.app": {"/"},
+    "vigilant-ai-api.onrender.com": {"/health"},
     "cybercrime.gov.in": {"/"},
     "www.cybercrime.gov.in": {"/"},
     "vtop.vitbhopal.ac.in": {

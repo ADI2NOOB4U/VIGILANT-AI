@@ -363,6 +363,62 @@ def test_vigil_production_policy_rejects_lookalikes_authority_tricks_and_unappro
     assert result["reputation"]["applied"] is False
 
 
+def test_vigil_api_health_route_overrides_biased_model_score_and_preserves_it():
+    result = scan("https://vigilant-ai-api.onrender.com/health", include_diagnostics=True)
+
+    assert result["model_probability"] >= result["thresholds"]["phishing"]
+    assert result["label"] != "PHISHING"
+    assert result["probability_source"] == "verified_official_route_policy"
+    assert result["reputation"]["applied"] is True
+    assert result["effective_probability"] < result["thresholds"]["safe"]
+    assert result["probability"] == result["effective_probability"]
+    assert result["diagnostics"]["raw_model_probability"] == result["model_probability"]
+
+
+@pytest.mark.parametrize("url", [
+    "https://VIGILANT-AI-API.ONRENDER.COM/health",
+    "https://vigilant-ai-api.onrender.com:443/health",
+])
+def test_vigil_api_health_route_normalizes_hostname_and_allows_default_https_port(url, monkeypatch):
+    import service
+
+    model, names, metadata = service.load_model_bundle()
+    monkeypatch.setattr(model, "predict_proba", lambda _row: [[0.001, 0.999]])
+    normalized = normalize_url(url)
+    result = service._prediction(normalized, extract_features(normalized), model, names, metadata)
+
+    assert result["label"] == "SAFE"
+    assert result["model_probability"] == 0.999
+    assert result["effective_probability"] < result["thresholds"]["safe"]
+    assert result["probability_source"] == "verified_official_route_policy"
+    assert result["reputation"]["host"] == "vigilant-ai-api.onrender.com"
+
+
+@pytest.mark.parametrize("url", [
+    "https://vigilant-ai-api.onrender.com.attacker.example/health",
+    "https://attacker.onrender.com/health",
+    "https://vigilant-ai-api.onrender.com/health/attacker",
+    "https://vigilant-ai-api.onrender.com/",
+    "https://vigilant-ai-api.onrender.com/scan",
+    "https://user@vigilant-ai-api.onrender.com/health",
+    "https://user:password@vigilant-ai-api.onrender.com/health",
+    "https://vigilant-ai-api.onrender.com:8443/health",
+    "http://vigilant-ai-api.onrender.com/health",
+])
+def test_vigil_api_health_policy_rejects_unapproved_authorities_and_routes(url, monkeypatch):
+    import service
+
+    model, names, metadata = service.load_model_bundle()
+    monkeypatch.setattr(model, "predict_proba", lambda _row: [[0.001, 0.999]])
+    normalized = normalize_url(url)
+    result = service._prediction(normalized, extract_features(normalized), model, names, metadata)
+
+    assert result["label"] == "PHISHING", url
+    assert result["model_probability"] == result["effective_probability"] == 0.999, url
+    assert result["probability_source"] == "model", url
+    assert result["reputation"]["applied"] is False, url
+
+
 @pytest.mark.parametrize("url", [
     "https://vtop.vitbhopal.ac.in/vtop",
     "https://vtop.vitbhopal.ac.in/vtop/",

@@ -12,7 +12,7 @@ const healthResult = (modelFingerprint = fingerprint) => ({
   model_loaded: true,
   model_version: "v2.1.0",
   model_fingerprint: modelFingerprint,
-  backend: {api_endpoint: "http://127.0.0.1:5000/health", backend_pid: 42, backend_instance_id: "test-instance"}
+  backend: {api_endpoint: "https://vigilant-ai-api.onrender.com/health", backend_pid: 42, backend_instance_id: "test-instance"}
 });
 
 function result(url, label, probability = label === "SAFE" ? 0.06 : label === "SUSPICIOUS" ? 0.4 : 0.99, modelFingerprint = fingerprint) {
@@ -33,7 +33,7 @@ function result(url, label, probability = label === "SAFE" ? 0.06 : label === "S
     request_id: requestId,
     model_version: "v2.1.0",
     model_fingerprint: modelFingerprint,
-    backend: {api_endpoint: "http://127.0.0.1:5000/scan", backend_pid: 42, backend_instance_id: "test-instance"},
+    backend: {api_endpoint: "https://vigilant-ai-api.onrender.com/scan", backend_pid: 42, backend_instance_id: "test-instance"},
     evidence: [],
     features: {}
   };
@@ -43,6 +43,7 @@ function loadWorker(fetchImpl, {shortTimeouts = false, closedTabs = new Set()} =
   const listeners = {};
   const storage = new Map();
   const updates = [];
+  const requestedTimeouts = [];
   let activeUrl = "https://fast.com/";
   const chrome = {
     runtime: {
@@ -91,7 +92,10 @@ function loadWorker(fetchImpl, {shortTimeouts = false, closedTabs = new Set()} =
     fetch: fetchImpl,
     AbortController,
     URL,
-    setTimeout: shortTimeouts ? (callback, _delay) => setTimeout(callback, 10) : setTimeout,
+    setTimeout: (callback, delay) => {
+      requestedTimeouts.push(delay);
+      return setTimeout(callback, shortTimeouts ? 10 : delay);
+    },
     clearTimeout,
     crypto: {randomUUID: () => requestId},
     console
@@ -107,7 +111,8 @@ function loadWorker(fetchImpl, {shortTimeouts = false, closedTabs = new Set()} =
       listeners.removed?.(tabId);
     },
     setActiveUrl: url => {activeUrl = url;},
-    updates
+    updates,
+    requestedTimeouts
   };
 }
 
@@ -120,15 +125,24 @@ function send(listener, message, sender = {}) {
 const waitForWorker = () => new Promise(resolve => setTimeout(resolve, 25));
 
 test("worker reports backend connectivity separately from scan state", async () => {
-  const worker = loadWorker(async url => new Response(JSON.stringify(url.endsWith("/health")
-    ? healthResult()
-    : result("https://fast.com/", "SAFE")), {status: 200}));
+  const requestedUrls = [];
+  const worker = loadWorker(async url => {
+    requestedUrls.push(url);
+    return new Response(JSON.stringify(url.endsWith("/health")
+      ? healthResult()
+      : result("https://fast.com/", "SAFE")), {status: 200});
+  });
   const health = await send(worker.message, {type: "HEALTH_CHECK"});
   assert.equal(health.state, "CONNECTED");
   assert.equal(health.model_version, "v2.1.0");
   const scanResponse = await send(worker.message, {type: "SCAN_CURRENT_TAB"});
   assert.equal(scanResponse.state, "RESULT");
   assert.equal(scanResponse.result.label, "SAFE");
+  assert.deepEqual(requestedUrls, [
+    "https://vigilant-ai-api.onrender.com/health",
+    "https://vigilant-ai-api.onrender.com/scan"
+  ]);
+  assert.deepEqual(worker.requestedTimeouts, [65_000, 90_000]);
 });
 
 test("worker reports backend offline without inventing a verdict", async () => {
@@ -137,6 +151,44 @@ test("worker reports backend offline without inventing a verdict", async () => {
   assert.equal(health.state, "BACKEND_OFFLINE");
   const result = await send(worker.message, {type: "SCAN_CURRENT_TAB"});
   assert.equal(result.state, "OFFLINE");
+});
+
+test("health check allows up to 65 seconds for a cold-start response", async () => {
+  let finishHealth;
+  const delayedHealth = new Promise(resolve => {finishHealth = resolve;});
+  const worker = loadWorker(async url => {
+    if (url.endsWith("/health")) return delayedHealth;
+    return new Response(JSON.stringify(result("https://fast.com/", "SAFE")), {status: 200});
+  });
+  const healthPromise = send(worker.message, {type: "HEALTH_CHECK"});
+  assert.deepEqual(worker.requestedTimeouts, [65_000]);
+  finishHealth(new Response(JSON.stringify(healthResult()), {status: 200}));
+  assert.equal((await healthPromise).state, "CONNECTED");
+});
+
+test("automatic navigation scans use a bounded timeout and fail open when offline", async () => {
+  const worker = loadWorker(async () => { throw new Error("connection refused"); });
+  await worker.navigate({tabId: 7, frameId: 0, url: "https://ordinary.example/"});
+  await waitForWorker();
+  assert.deepEqual(worker.requestedTimeouts, [15_000]);
+  assert.deepEqual(worker.updates, []);
+});
+
+test("failed API request while navigating to the production health endpoint is not a phishing verdict", async () => {
+  const worker = loadWorker(async () => { throw new Error("connection refused"); });
+  await worker.navigate({
+    tabId: 7,
+    frameId: 0,
+    url: "https://vigilant-ai-api.onrender.com/health"
+  });
+  await waitForWorker();
+  assert.deepEqual(worker.updates, []);
+});
+
+test("malformed health data never produces a connected state", async () => {
+  const worker = loadWorker(async () => new Response(JSON.stringify({status: "ok", model_loaded: true}), {status: 200}));
+  const health = await send(worker.message, {type: "HEALTH_CHECK"});
+  assert.equal(health.state, "BACKEND_OFFLINE");
 });
 
 test("same tab and URL share one active scan request", async () => {
@@ -169,7 +221,7 @@ test("same exact URL and backend response preserve the same verdict and request 
   assert.equal(response.url, response.result.normalized_url);
   assert.equal(response.result.label, "SAFE");
   assert.equal(response.result.request_id, requestHeader);
-  assert.equal(response.result.backend.api_endpoint, "http://127.0.0.1:5000/scan");
+  assert.equal(response.result.backend.api_endpoint, "https://vigilant-ai-api.onrender.com/scan");
 });
 
 test("SAFE and SUSPICIOUS verdicts allow top-level navigation", async t => {

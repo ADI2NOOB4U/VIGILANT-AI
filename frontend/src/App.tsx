@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'motion/react'
-import { api } from './services/api'
 import type { ScanResult } from './types'
+import { useBackendHealth } from './hooks/useBackendHealth'
 import { Shell, type Page } from './components/Shell'
 import { ScanPage } from './pages/ScanPage'
 import { FeedPage } from './pages/FeedPage'
@@ -14,45 +14,9 @@ import { AboutPage } from './pages/AboutPage'
 export default function App() {
   const [page, setPage] = useState<Page>('scan')
   const [result, setResult] = useState<ScanResult | null>(null)
-  const [health, setHealth] = useState<boolean | null>(null)
+  const health = useBackendHealth()
   const [inspectUrl, setInspectUrl] = useState<string>('')
   const [targetLegalInstrumentId, setTargetLegalInstrumentId] = useState<string | undefined>(undefined)
-
-  useEffect(() => {
-    let cancelled = false
-    let timer: number | undefined
-
-    const checkHealth = async () => {
-      if (cancelled) return
-
-      try {
-        const value = await api.getHealth(65000)
-        if (cancelled) return
-
-        if (value.status === 'ok' && value.model_loaded) {
-          setHealth(true)
-          timer = window.setTimeout(checkHealth, 15000)
-          return
-        }
-
-        throw new Error('Backend reported an incomplete health state.')
-      } catch {
-        if (cancelled) return
-        setHealth(false)
-        timer = window.setTimeout(checkHealth, 15000)
-      }
-    }
-
-    setHealth(null)
-    checkHealth()
-
-    return () => {
-      cancelled = true
-      if (timer) {
-        window.clearTimeout(timer)
-      }
-    }
-  }, [])
 
   const handleInspectUrl = (url: string) => {
     setInspectUrl(url)

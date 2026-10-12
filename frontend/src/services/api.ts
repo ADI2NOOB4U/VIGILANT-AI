@@ -52,37 +52,70 @@ export function resolveApiBaseUrl(value = import.meta.env.VITE_API_BASE_URL, isD
 
 export const baseUrl = resolveApiBaseUrl()
 
+export type ApiRequestErrorKind = 'timeout' | 'aborted' | 'network_or_cors' | 'http' | 'invalid_json' | 'invalid_response'
+
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly kind: ApiRequestErrorKind,
+    readonly statusCode?: number
+  ) {
+    super(message)
+    this.name = 'ApiRequestError'
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit, timeoutMs = 15000): Promise<T> {
-  let response: Response
   const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+  let timedOut = false
+  const timeout = window.setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+  const externalSignal = init?.signal
+  const abortFromCaller = () => controller.abort()
+  if (externalSignal?.aborted) controller.abort()
+  else externalSignal?.addEventListener('abort', abortFromCaller, { once: true })
+
   try {
-    response = await fetch(`${baseUrl}${path}`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       ...init,
-      signal: init?.signal || controller.signal,
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     })
+
+    let body: unknown = null
+    try {
+      body = await response.json()
+    } catch (error) {
+      if (controller.signal.aborted) throw error
+      if (response.ok) {
+        throw new ApiRequestError('The VIGIL backend returned invalid JSON.', 'invalid_json', response.status)
+      }
+    }
+
+    if (!response.ok) {
+      const message = typeof body === 'object' && body !== null && 'message' in body
+        ? String(body.message)
+        : `VIGIL backend returned HTTP ${response.status}.`
+      throw new ApiRequestError(message, 'http', response.status)
+    }
+
+    return body as T
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(`The VIGIL backend did not respond before the ${timeoutMs} ms timeout.`)
+    if (error instanceof ApiRequestError) throw error
+    if (timedOut) {
+      throw new ApiRequestError(`The VIGIL backend did not respond before the ${timeoutMs} ms timeout.`, 'timeout')
+    }
+    if (controller.signal.aborted) {
+      throw new ApiRequestError('The VIGIL backend request was cancelled.', 'aborted')
     }
     const detail = error instanceof Error ? ` (${error.message})` : ''
-    throw new Error(`VIGIL could not reach the backend service.${detail}`)
+    throw new ApiRequestError(`VIGIL could not reach the backend service${detail}.`, 'network_or_cors')
   } finally {
     window.clearTimeout(timeout)
+    externalSignal?.removeEventListener('abort', abortFromCaller)
   }
-
-  let body: any = null
-  try {
-    body = await response.json()
-  } catch {
-    body = null
-  }
-
-  if (!response.ok) {
-    throw new Error(body?.message || 'Request failed. Try again.')
-  }
-  return body as T
 }
 
 export const api = {
@@ -100,7 +133,13 @@ export const api = {
   clearHistory: () => request<{ status: string }>('/history', { method: 'DELETE' }),
   getModelInfo: () => request<ModelInfo>('/model-info'),
   getScanAnalytics: () => request<ScanAnalytics>('/analysis/scan-analytics'),
-  getHealth: (timeoutMs = 65000) => request<HealthResponse>('/health', undefined, timeoutMs),
+  getHealth: async (timeoutMs = 65000, signal?: AbortSignal) => {
+    const response = await request<HealthResponse>('/health', { signal }, timeoutMs)
+    if (!response || response.status !== 'ok' || response.model_loaded !== true) {
+      throw new ApiRequestError('The VIGIL backend returned an unhealthy or invalid health response.', 'invalid_response')
+    }
+    return response
+  },
 
   // MODULE 1: Threat Intelligence Feed API
   getThreatIndicators: (params?: {

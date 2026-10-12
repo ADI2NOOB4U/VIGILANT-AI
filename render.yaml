@@ -18,4 +18,4 @@ services:
       - key: VIGIL_DB_PATH
         value: /var/data/vigil_history.sqlite3
       - key: VIGIL_CORS_ORIGINS
-        sync: false
+        value: https://vigilant-ai-frontend.vercel.app

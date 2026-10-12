@@ -1,6 +1,9 @@
 // VIGIL's service worker is the only extension-side coordinator. It delegates
-// classification to the Flask API and never implements a second verdict rule.
-const API_BASE = "http://127.0.0.1:5000";
+// classification to the hosted API and never implements a second verdict rule.
+const API_BASE = "https://vigilant-ai-api.onrender.com";
+const HEALTH_CHECK_TIMEOUT_MS = 65_000;
+const USER_SCAN_TIMEOUT_MS = 90_000;
+const NAVIGATION_SCAN_TIMEOUT_MS = 15_000;
 const inFlight = new Map();
 const bypasses = new Map();
 const latestNavigations = new Map();
@@ -123,17 +126,17 @@ async function setBadge(tabId, label, offline = false) {
   }
 }
 
-async function scanUrl(tabId, url) {
+async function scanUrl(tabId, url, timeoutMs = NAVIGATION_SCAN_TIMEOUT_MS) {
   const normalizedUrl = new URL(url).href;
   const key = cacheKey(tabId, normalizedUrl);
-  const clientScanId = crypto.randomUUID();
   if (inFlight.has(key)) return inFlight.get(key);
+  const clientScanId = crypto.randomUUID();
 
   const request = fetchWithTimeout(`${API_BASE}/scan`, {
     method: "POST",
     headers: {"Content-Type": "application/json", "X-Vigil-Request-Id": clientScanId},
     body: JSON.stringify({url: normalizedUrl})
-  }).then(async ({response, data}) => {
+  }, timeoutMs).then(async ({response, data}) => {
     if (!response.ok) throw new Error(data?.message || "The VIGIL backend rejected the scan.");
     if (!isValidScanResult(data) || new URL(data.normalized_url).href !== normalizedUrl) {
       throw new Error("The VIGIL backend returned an invalid result.");
@@ -155,7 +158,9 @@ async function scanUrl(tabId, url) {
       await setBadge(tabId, null, true);
     }
     throw error;
-  }).finally(() => inFlight.delete(key));
+  }).finally(() => {
+    if (inFlight.get(key) === request) inFlight.delete(key);
+  });
 
   inFlight.set(key, request);
   return request;
@@ -177,7 +182,7 @@ async function saveBlockedState(tabId, url, result) {
 
 async function blockNavigation(details, navigation) {
   try {
-    const result = await scanUrl(details.tabId, details.url);
+    const result = await scanUrl(details.tabId, details.url, NAVIGATION_SCAN_TIMEOUT_MS);
     if (latestNavigations.get(details.tabId) !== navigation) {
       logBlockDecision(details.url, result.label, "ALLOW (navigation changed)", result);
       return;
@@ -230,7 +235,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(details => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status !== "complete" || !tab?.url || !isScannableUrl(tab.url)) return;
-  void scanUrl(tabId, tab.url).catch(() => undefined);
+  void scanUrl(tabId, tab.url, NAVIGATION_SCAN_TIMEOUT_MS).catch(() => undefined);
 });
 
 chrome.tabs.onRemoved.addListener(tabId => {
@@ -243,7 +248,7 @@ chrome.tabs.onRemoved.addListener(tabId => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "HEALTH_CHECK") {
-    fetchWithTimeout(`${API_BASE}/health`).then(({response, data}) => {
+    fetchWithTimeout(`${API_BASE}/health`, {}, HEALTH_CHECK_TIMEOUT_MS).then(({response, data}) => {
       if (!response.ok || !isValidHealth(data)) return {state: "BACKEND_OFFLINE"};
       return {
         state: "CONNECTED",
@@ -269,7 +274,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (!tab?.url || !isScannableUrl(tab.url)) return {state: "UNSUPPORTED", url: tab?.url || ""};
       const requestedUrl = new URL(tab.url).href;
       try {
-        const result = await scanUrl(tab.id, requestedUrl);
+        const result = await scanUrl(tab.id, requestedUrl, USER_SCAN_TIMEOUT_MS);
         const currentTabs = await chrome.tabs.query({active: true, currentWindow: true});
         if (
           !currentTabs[0] ||

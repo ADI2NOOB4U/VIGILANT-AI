@@ -12,7 +12,7 @@
   "permissions": ["tabs", "webNavigation", "storage"],
 
   "host_permissions": [
-    "http://127.0.0.1:5000/*"
+    "https://vigilant-ai-api.onrender.com/*"
   ],
 
   "action": { "default_popup": "popup.html", "default_title": "VIGIL URL protection" },

@@ -7,16 +7,20 @@ const manifest = JSON.parse(read("manifest.json"));
 
 test("manifest keeps permissions scoped to extension behavior", () => {
   assert.deepEqual(manifest.permissions.sort(), ["storage", "tabs", "webNavigation"]);
-  assert.ok(manifest.host_permissions.includes("http://127.0.0.1:5000/*"));
+  assert.deepEqual(manifest.host_permissions, ["https://vigilant-ai-api.onrender.com/*"]);
   assert.equal(manifest.background.service_worker, "background.js");
 });
 
 test("all extension scripts are external and use the backend as source of truth", () => {
   const popup = read("popup.js");
   const background = read("background.js");
+  assert.match(background, /const API_BASE = "https:\/\/vigilant-ai-api\.onrender\.com"/);
   assert.match(background, /HEALTH_CHECK/);
   assert.match(background, /fetchWithTimeout/);
   assert.match(background, /\/scan/);
+  assert.doesNotMatch(background, /127\.0\.0\.1:5000|localhost:5000/);
+  assert.doesNotMatch(popup, /127\.0\.0\.1:5000|localhost:5000|local Flask service/);
+  assert.match(popup, /No phishing verdict was assumed/);
   assert.doesNotMatch(background, /PHISHING_THRESHOLD|SAFE_THRESHOLD|predict_proba|innerHTML/);
   assert.doesNotMatch(popup, /innerHTML|insertAdjacentHTML|eval\(/);
   assert.match(popup, /textContent/);

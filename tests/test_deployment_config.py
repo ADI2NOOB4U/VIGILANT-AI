@@ -36,6 +36,12 @@ def test_cors_origins_accept_explicit_exact_origins():
     ]
 
 
+def test_cors_origins_accept_exact_production_frontend_origin():
+    assert _parse_cors_origins(
+        "https://vigilant-ai-frontend.vercel.app"
+    ) == ["https://vigilant-ai-frontend.vercel.app"]
+
+
 @pytest.mark.parametrize(
     "value",
     [
