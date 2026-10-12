@@ -37,6 +37,22 @@ describe('API backend configuration', () => {
     }))
   })
 
+  it('omits Content-Type for GET health requests and adds it only for JSON POST bodies', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', model_loaded: true }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.getHealth()
+    await api.scanUrl('https://example.com')
+
+    const healthCall = fetchMock.mock.calls[0][1]
+    const scanCall = fetchMock.mock.calls[1][1]
+    expect(healthCall.headers).toBeInstanceOf(Headers)
+    expect(new Headers(healthCall.headers).has('Content-Type')).toBe(false)
+    expect(new Headers(scanCall.headers).get('Content-Type')).toBe('application/json')
+  })
+
   it('rejects a backend health response with model_loaded false', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: 'ok',

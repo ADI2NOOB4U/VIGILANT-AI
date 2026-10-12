@@ -77,11 +77,18 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 15000): 
   if (externalSignal?.aborted) controller.abort()
   else externalSignal?.addEventListener('abort', abortFromCaller, { once: true })
 
+  const headers = new Headers(init?.headers ?? undefined)
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const hasJsonBody = typeof init?.body === 'string' && init.body.length > 0
+  if (hasJsonBody && !headers.has('Content-Type') && method !== 'GET' && method !== 'HEAD') {
+    headers.set('Content-Type', 'application/json')
+  }
+
   try {
     const response = await fetch(`${baseUrl}${path}`, {
       ...init,
       signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+      headers,
     })
 
     let body: unknown = null

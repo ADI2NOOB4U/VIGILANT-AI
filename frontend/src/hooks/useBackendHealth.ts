@@ -28,7 +28,6 @@ export function useBackendHealth(): boolean | null {
       const sequence = ++requestSequence
       const controller = new AbortController()
       activeController = controller
-      setHealth(null)
 
       try {
         await api.getHealth(HEALTH_TIMEOUT_MS, controller.signal)

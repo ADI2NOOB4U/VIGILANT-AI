@@ -59,6 +59,28 @@ describe('useBackendHealth', () => {
     expect(result.current).toBe(true)
   })
 
+  it('keeps a healthy backend online during periodic polling instead of flickering to Checking', async () => {
+    const first = deferred<typeof healthyResponse>()
+    const second = deferred<typeof healthyResponse>()
+    getHealth.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const { result } = renderHook(() => useBackendHealth())
+
+    await act(async () => {
+      first.resolve(healthyResponse)
+      await Promise.resolve()
+    })
+    expect(result.current).toBe(true)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000)
+    })
+    expect(getHealth).toHaveBeenCalledTimes(2)
+    expect(result.current).toBe(true)
+    second.resolve(healthyResponse)
+    await act(async () => { await Promise.resolve() })
+    expect(result.current).toBe(true)
+  })
+
   it('does not overlap requests and aborts the in-flight request on unmount', async () => {
     const pending = deferred<typeof healthyResponse>()
     getHealth.mockReturnValue(pending.promise)
